@@ -8,22 +8,26 @@ The tool is meant to be fun, light, and joyful. It should not get in the way of 
 
 ## Core Flow
 
-1. PR created → Claude Code hook triggers `pr-fitness prompt`
-2. Tool picks an exercise based on user preferences and equipment
-3. Displays: `Push-ups (10) — How many did you do?`
-4. User responds with a number (0, 10, 15, etc.)
+1. PR created → Claude Code hook outputs the exercise assignment in its stdout
+2. Claude sees the hook output and relays it to the user in conversation: `Push-ups (10) — How many did you do?`
+3. User responds in the conversation with a number
+4. Claude calls `pr-fitness log --exercise push-ups --assigned 10 --completed 15` to record it
 5. Difference is tracked: negative = owed, positive = banked credit
 6. User moves on with their day
+
+The hook itself is non-interactive — it assigns the exercise and outputs the prompt. The actual user interaction happens through Claude Code's conversation, and logging is a separate CLI call.
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `pr-fitness setup` | Interactive onboarding: equipment, exercise pool, tone, storage backend |
-| `pr-fitness prompt` | Assign and log an exercise (called by the hook, or manually) |
-| `pr-fitness log` | Show history (today / this week / this sprint) |
+| `pr-fitness setup` | Interactive onboarding: equipment, exercise pool, tone |
+| `pr-fitness prompt` | Assign an exercise and output the prompt (called by the hook) |
+| `pr-fitness log` | Record completed reps: `--exercise push-ups --assigned 10 --completed 15` |
+| `pr-fitness history` | Show exercise history (today / this week / this sprint) |
 | `pr-fitness stats` | Summary with owed vs banked per exercise |
 | `pr-fitness config` | Update preferences |
+| `pr-fitness reset` | Clear all data or reset balance to zero |
 
 ## Data Model
 
@@ -33,14 +37,20 @@ Storage: local JSON file at `~/.pr-fitness/data.json`
 {
   "profile": {
     "equipment": ["pull-up-bar", "bands"],
-    "exercises": ["push-ups", "sit-ups", "pull-ups", "band-rows"],
+    "exercises": [
+      { "name": "push-ups", "unit": "reps", "min": 5, "max": 15 },
+      { "name": "plank", "unit": "seconds", "min": 15, "max": 30 },
+      { "name": "lunges", "unit": "reps", "min": 10, "max": 20, "note": "total, alternating legs" }
+    ],
     "tone": "minimal",
-    "storage": "local"
+    "sprintLengthDays": 14,
+    "sprintStartDate": "2026-03-02"
   },
   "log": [
     {
       "date": "2026-03-11T14:30:00Z",
       "exercise": "push-ups",
+      "unit": "reps",
       "assigned": 10,
       "completed": 15,
       "pr": "feat/add-auth#42"
@@ -52,36 +62,38 @@ Storage: local JSON file at `~/.pr-fitness/data.json`
 ### Fields
 
 - **profile.equipment**: List of available equipment. Options: `none`, `pull-up-bar`, `bands`, `weights`
-- **profile.exercises**: Exercises available based on equipment. Auto-populated during setup, editable via `config`
+- **profile.exercises**: Exercise definitions with name, unit (`reps` or `seconds`), and min/max range
 - **profile.tone**: Display personality. One of `minimal`, `encouraging`
-- **profile.storage**: Storage backend. One of `local`, `google-sheets`, `custom-api`
+- **profile.sprintLengthDays**: Sprint length in days (default 14)
+- **profile.sprintStartDate**: Start date of current sprint cycle
 - **log[].date**: ISO timestamp of when the exercise was assigned
 - **log[].exercise**: Name of the exercise
-- **log[].assigned**: Number of reps suggested
-- **log[].completed**: Number of reps the user reported doing
+- **log[].unit**: `reps` or `seconds`
+- **log[].assigned**: Amount suggested
+- **log[].completed**: Amount the user reported doing
 - **log[].pr**: PR identifier (optional, captured from hook context)
 
 ## Exercise Selection
 
 ### Default Pool (no equipment)
 
-| Exercise | Rep Range |
-|----------|-----------|
-| Push-ups | 5–15 |
-| Sit-ups | 10–20 |
-| Squats | 10–15 |
-| Lunges | 5–10 per side |
-| Plank | 15–30 seconds |
+| Exercise | Unit | Range | Notes |
+|----------|------|-------|-------|
+| Push-ups | reps | 5–15 | |
+| Sit-ups | reps | 10–20 | |
+| Squats | reps | 10–15 | |
+| Lunges | reps | 10–20 | Total, alternating legs |
+| Plank | seconds | 15–30 | |
 
 ### Equipment Unlocks
 
 | Equipment | Exercises Added |
 |-----------|----------------|
-| Pull-up bar | Pull-ups (3–8), Hanging leg raises (5–10) |
-| Bands | Band rows (8–12), Band pull-aparts (10–15) |
-| Weights | Dumbbell curls (8–12), Overhead press (5–10) |
+| Pull-up bar | Pull-ups (3–8 reps), Hanging leg raises (5–10 reps) |
+| Bands | Band rows (8–12 reps), Band pull-aparts (10–15 reps) |
+| Weights | Dumbbell curls (8–12 reps), Overhead press (5–10 reps) |
 
-All exercises are low-rep, office-floor friendly. Selection is random from the user's configured pool.
+All exercises are low-rep, office-floor friendly. Selection is random from the user's configured pool. No variety algorithm in v1 — random is intentionally simple.
 
 ## Tone Presets
 
@@ -90,20 +102,29 @@ All exercises are low-rep, office-floor friendly. Selection is random from the u
 | **minimal** (default) | `Push-ups (10) — How many did you do?` |
 | **encouraging** | `Nice PR! Time for 10 push-ups — you've got this! How many did you get?` |
 
+Units are reflected in the prompt: `Plank (20s) — How many seconds did you hold?`
+
 Users can customize their tone preference during setup or via `pr-fitness config`.
 
 ## Onboarding (Setup)
 
 ### Flow
 
-1. Run `pr-fitness setup` or get prompted on first PR
+1. Run `pr-fitness setup` or get prompted on first `pr-fitness prompt` invocation
 2. "Got any equipment?" → multi-select: pull-up bar / bands / weights / none
 3. Exercise pool auto-generated based on equipment
 4. "Pick your vibe:" → minimal / encouraging
-5. "Where to store data?" → local (default) / Google Sheets (future) / custom API (future)
-6. Config saved to `~/.pr-fitness/data.json`
+5. Config saved to `~/.pr-fitness/data.json`
+
+Storage backend selection is omitted from v1 setup since only local storage is implemented. Future backends will be added to setup when available.
 
 If setup hasn't been run, the first `pr-fitness prompt` invocation triggers setup automatically.
+
+## Input Validation
+
+- `completed` must be a non-negative integer (or non-negative number for seconds)
+- Non-numeric input is rejected with a friendly message
+- No upper cap — if someone says they did 100 push-ups, good for them
 
 ## Stats and Tracking
 
@@ -117,8 +138,8 @@ Each exercise maintains a running balance:
 ### Views
 
 - **Daily**: exercises assigned and completed today
-- **Weekly**: summary for the current week
-- **Sprint**: configurable sprint length (default 2 weeks)
+- **Weekly**: summary for the current week (Monday–Sunday)
+- **Sprint**: based on `sprintLengthDays` and `sprintStartDate` in config
 - **All-time**: cumulative stats
 
 ### Example Output (`pr-fitness stats`)
@@ -134,43 +155,49 @@ Squats             15    15       0
 Total PRs: 6
 ```
 
-## Storage Backends
+### Reset
 
-### Local (default)
+`pr-fitness reset` offers:
+- Reset all balances to zero (keeps history)
+- Clear all data (fresh start)
+
+## Storage
+
+### Local (default, v1)
 
 - JSON file at `~/.pr-fitness/data.json`
 - Zero dependencies, zero setup
 - Human-readable, easy to debug
+- Atomic writes: write to temp file, then rename (prevents corruption from concurrent writes)
 
-### Google Sheets (future)
+### Future Backends (post-v1)
 
-- Shared team tracking
-- Each team member's data in a shared spreadsheet
-- Requires one-time auth setup
-
-### Custom API (future)
-
-- POST exercise logs to a webhook URL
-- GET stats from the same endpoint
-- For teams that want their own dashboard
+- **Google Sheets**: shared team tracking
+- **Custom API**: POST/GET to a webhook URL for custom dashboards
 
 ## Claude Code Integration
 
 ### Hook Configuration
 
-A hook in the project's `.claude/hooks.json` that fires after PR creation:
+Uses a `PostToolUse` hook that fires after the Bash tool runs `gh pr create`:
 
 ```json
 {
   "hooks": {
-    "post-pr-create": {
-      "command": "pr-fitness prompt --pr $PR_URL"
-    }
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "pr-fitness prompt --pr \"$CC_TOOL_OUTPUT\"",
+        "description": "Assign a fitness exercise after creating a PR"
+      }
+    ]
   }
 }
 ```
 
-Teams share this by including the hook config in their repo. Each team member installs `pr-fitness` and runs setup individually.
+The hook outputs the exercise assignment (e.g., `Push-ups (10) — How many did you do?`). Claude Code relays this to the user in conversation. When the user responds with a number, Claude calls `pr-fitness log` to record it.
+
+Teams share this by including the hook config in their repo's `.claude/hooks.json`. Each team member installs `pr-fitness` and runs setup individually.
 
 ### Manual Use
 
@@ -178,7 +205,8 @@ Works standalone without Claude Code:
 
 ```bash
 npx pr-fitness setup    # one-time
-npx pr-fitness prompt   # after any PR
+npx pr-fitness prompt   # assign an exercise
+npx pr-fitness log --exercise push-ups --assigned 10 --completed 8
 npx pr-fitness stats    # check your balance
 ```
 
@@ -193,7 +221,7 @@ npx pr-fitness stats    # check your balance
 
 - **Runtime**: Node.js
 - **Package manager**: npm
-- **Storage**: JSON file (default), pluggable backends
+- **Storage**: JSON file (default), pluggable backends via adapter pattern
 - **CLI framework**: TBD during implementation (e.g., inquirer for prompts, commander for CLI parsing)
 - **No external services required** for default usage
 
@@ -204,3 +232,5 @@ npx pr-fitness stats    # check your balance
 - Leaderboards
 - Custom exercise creation UI (edit JSON directly for now)
 - Team sync without external storage
+- Smart exercise rotation / avoiding repeats
+- Balance decay or auto-forgiveness
