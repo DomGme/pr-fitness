@@ -8,8 +8,37 @@ The tool is meant to be fun, light, and joyful. It should not get in the way of 
 
 ## Core Flow
 
-1. PR created → Claude Code hook outputs the exercise assignment in its stdout
-2. Claude sees the hook output and relays it to the user in conversation: `Push-ups (10) — How many did you do?`
+### First PR of the Day
+
+On the first PR of each day, the hook detects there are no log entries for today and outputs a daily exercise selection prompt:
+
+```
+Good morning! Pick your exercise for today:
+1. Push-ups
+2. Sit-ups
+3. Squats
+4. Lunges
+5. Plank
+6. Random (surprise me)
+```
+
+The user picks one (or "random"), and that exercise is locked in for the rest of the day. Subsequent PRs that day skip this step and go straight to the assigned exercise.
+
+The daily choice is stored in `~/.pr-fitness/data.json` under a `dailyChoice` field:
+
+```json
+{
+  "dailyChoice": {
+    "date": "2026-03-11",
+    "exercise": "push-ups"
+  }
+}
+```
+
+### Subsequent PRs
+
+1. PR created → Claude Code hook runs `pr-fitness prompt` and outputs the exercise assignment
+2. Claude sees the hook output and relays it to the user: `Push-ups (10) — How many did you do?`
 3. User responds in the conversation with a number
 4. Claude calls `pr-fitness log --exercise push-ups --assigned 10 --completed 15` to record it
 5. Difference is tracked: negative = owed, positive = banked credit
