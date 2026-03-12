@@ -29,8 +29,9 @@ describe('tones', () => {
     ];
     const result = formatDailyChoice(exercises);
     expect(result).toContain('Pick your exercise for today');
-    expect(result).toContain('1. Push-ups');
-    expect(result).toContain('2. Sit-ups');
+    expect(result).toContain('1. Random');
+    expect(result).toContain('2. Push-ups');
+    expect(result).toContain('3. Sit-ups');
     expect(result).toContain('Random');
   });
 

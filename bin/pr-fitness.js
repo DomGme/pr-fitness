@@ -76,14 +76,7 @@ program
       pr: opts.pr || null,
     });
 
-    const diff = completed - opts.assigned;
-    if (diff > 0) {
-      console.log(`Logged! You banked +${diff}. Nice work!`);
-    } else if (diff < 0) {
-      console.log(`Logged! You owe ${Math.abs(diff)} — you'll get there!`);
-    } else {
-      console.log('Logged! Right on target.');
-    }
+    console.log('Logged! Back to work.');
   });
 
 program

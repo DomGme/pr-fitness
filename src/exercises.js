@@ -43,3 +43,31 @@ export function pickExercise(exercises) {
 export function pickRepCount(exercise) {
   return Math.floor(Math.random() * (exercise.max - exercise.min + 1)) + exercise.min;
 }
+
+export function getAdaptiveRepCount(exercise, log) {
+  const entries = log
+    .filter((e) => e.exercise === exercise.name)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (entries.length < 3) {
+    return pickRepCount(exercise);
+  }
+
+  const decay = 0.9;
+  let weightedSum = 0;
+  let weightSum = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const weight = Math.pow(decay, i);
+    weightedSum += entries[i].completed * weight;
+    weightSum += weight;
+  }
+
+  const avg = weightedSum / weightSum;
+  const low = avg * 0.8;
+  const high = avg * 1.2;
+  const raw = Math.round(low + Math.random() * (high - low));
+
+  const maxCap = exercise.max * 2;
+  return Math.max(1, Math.min(maxCap, Math.max(exercise.min, raw)));
+}

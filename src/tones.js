@@ -27,9 +27,9 @@ export function formatPrompt(tone, exercise, count, unit) {
 
 export function formatDailyChoice(exercises) {
   const lines = ['Good morning! Pick your exercise for today:'];
+  lines.push('1. Random (surprise me)');
   exercises.forEach((ex, i) => {
-    lines.push(`${i + 1}. ${capitalize(ex.name)}`);
+    lines.push(`${i + 2}. ${capitalize(ex.name)}`);
   });
-  lines.push(`${exercises.length + 1}. Random (surprise me)`);
   return lines.join('\n');
 }

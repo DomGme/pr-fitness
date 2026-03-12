@@ -22,11 +22,15 @@ export function runSetup(answers, dataDir) {
 export function getHookConfig() {
   return {
     hooks: {
-      PostToolUse: [
+      PreToolUse: [
         {
           matcher: 'Bash',
-          command: "if echo \"$CC_TOOL_INPUT\" | grep -q 'gh pr create'; then pr-fitness prompt --pr \"$(echo $CC_TOOL_OUTPUT | grep -oE 'https://github.com/[^ ]+' | head -1)\"; fi",
-          description: 'PR Fitness: assigns an exercise after creating a PR.',
+          hooks: [
+            {
+              type: 'command',
+              command: "INPUT=$(cat); if echo \"$INPUT\" | jq -r '.tool_input.command' 2>/dev/null | grep -q 'gh pr create'; then pr-fitness prompt 2>/dev/null; fi",
+            },
+          ],
         },
       ],
     },
@@ -50,11 +54,11 @@ export function installHook() {
 
   // Merge — don't overwrite existing hooks
   if (!existing.hooks) existing.hooks = {};
-  if (!existing.hooks.PostToolUse) existing.hooks.PostToolUse = [];
+  if (!existing.hooks.PreToolUse) existing.hooks.PreToolUse = [];
 
   // Check if our hook is already installed
-  const alreadyInstalled = existing.hooks.PostToolUse.some(
-    (h) => h.command && h.command.includes('pr-fitness prompt')
+  const alreadyInstalled = existing.hooks.PreToolUse.some(
+    (h) => h.hooks && h.hooks.some((sub) => sub.command && sub.command.includes('pr-fitness prompt'))
   );
 
   if (alreadyInstalled) {
@@ -62,7 +66,7 @@ export function installHook() {
   }
 
   const hookConfig = getHookConfig();
-  existing.hooks.PostToolUse.push(...hookConfig.hooks.PostToolUse);
+  existing.hooks.PreToolUse.push(...hookConfig.hooks.PreToolUse);
 
   writeFileSync(hooksPath, JSON.stringify(existing, null, 2) + '\n');
   return { installed: true, path: hooksPath };

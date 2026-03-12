@@ -1,5 +1,5 @@
 import { loadData, saveData } from '../storage.js';
-import { pickExercise, pickRepCount } from '../exercises.js';
+import { pickExercise, getAdaptiveRepCount } from '../exercises.js';
 import { formatPrompt, formatDailyChoice } from '../tones.js';
 
 export function generatePrompt(dataDir) {
@@ -26,7 +26,7 @@ export function generatePrompt(dataDir) {
     return { needsDailyChoice: true, exercises: data.profile.exercises, dailyChoicePrompt: formatDailyChoice(data.profile.exercises) };
   }
 
-  const count = pickRepCount(exercise);
+  const count = getAdaptiveRepCount(exercise, data.log);
   const prompt = formatPrompt(data.profile.tone, exercise.name, count, exercise.unit);
 
   return {

@@ -73,8 +73,8 @@ describe('hook installation', () => {
     const hooksPath = join(fakeHome, '.claude', 'hooks.json');
     expect(existsSync(hooksPath)).toBe(true);
     const hooks = JSON.parse(readFileSync(hooksPath, 'utf-8'));
-    expect(hooks.hooks.PostToolUse).toHaveLength(1);
-    expect(hooks.hooks.PostToolUse[0].command).toContain('pr-fitness prompt');
+    expect(hooks.hooks.PreToolUse).toHaveLength(1);
+    expect(hooks.hooks.PreToolUse[0].hooks[0].command).toContain('pr-fitness prompt');
   });
 
   it('does not duplicate hook if already installed', () => {
@@ -84,7 +84,7 @@ describe('hook installation', () => {
     expect(result.reason).toBe('already-installed');
     const hooksPath = join(fakeHome, '.claude', 'hooks.json');
     const hooks = JSON.parse(readFileSync(hooksPath, 'utf-8'));
-    expect(hooks.hooks.PostToolUse).toHaveLength(1);
+    expect(hooks.hooks.PreToolUse).toHaveLength(1);
   });
 
   it('preserves existing hooks when installing', async () => {
@@ -92,21 +92,23 @@ describe('hook installation', () => {
     mkdirSync(join(fakeHome, '.claude'), { recursive: true });
     writeFileSync(join(fakeHome, '.claude', 'hooks.json'), JSON.stringify({
       hooks: {
-        PostToolUse: [{ matcher: 'Other', command: 'echo hello', description: 'existing hook' }],
+        PreToolUse: [{ matcher: 'Other', command: 'echo hello', description: 'existing hook' }],
       },
     }));
 
     const result = installHook();
     expect(result.installed).toBe(true);
     const hooks = JSON.parse(readFileSync(join(fakeHome, '.claude', 'hooks.json'), 'utf-8'));
-    expect(hooks.hooks.PostToolUse).toHaveLength(2);
-    expect(hooks.hooks.PostToolUse[0].command).toBe('echo hello');
-    expect(hooks.hooks.PostToolUse[1].command).toContain('pr-fitness prompt');
+    expect(hooks.hooks.PreToolUse).toHaveLength(2);
+    expect(hooks.hooks.PreToolUse[0].command).toBe('echo hello');
+    expect(hooks.hooks.PreToolUse[1].hooks[0].command).toContain('pr-fitness prompt');
   });
 
   it('getHookConfig returns valid hook structure', () => {
     const config = getHookConfig();
-    expect(config.hooks.PostToolUse).toHaveLength(1);
-    expect(config.hooks.PostToolUse[0].matcher).toBe('Bash');
+    expect(config.hooks.PreToolUse).toHaveLength(1);
+    expect(config.hooks.PreToolUse[0].matcher).toBe('Bash');
+    expect(config.hooks.PreToolUse[0].hooks).toHaveLength(1);
+    expect(config.hooks.PreToolUse[0].hooks[0].type).toBe('command');
   });
 });
