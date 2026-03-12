@@ -1,0 +1,21 @@
+{
+  "name": "pr-fitness",
+  "version": "0.1.0",
+  "description": "Get fit one PR at a time. Assigns calisthenics exercises when you create pull requests.",
+  "type": "module",
+  "bin": {
+    "pr-fitness": "./bin/pr-fitness.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3",
+    "inquirer": "^13.3.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  }
+}
