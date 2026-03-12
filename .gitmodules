@@ -1,0 +1,3 @@
+[submodule "Specflow"]
+	path = Specflow
+	url = https://github.com/DomGme/Specflow.git
