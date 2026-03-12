@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadData, saveData } from '../storage.js';
 import { getExercisesForEquipment } from '../exercises.js';
 
@@ -8,7 +10,7 @@ export function runSetup(answers, dataDir) {
   data.profile = {
     equipment: answers.equipment,
     exercises,
-    tone: answers.tone,
+    tone: 'minimal',
     sprintLengthDays: 14,
     sprintStartDate: new Date().toISOString().split('T')[0],
   };
@@ -17,31 +19,106 @@ export function runSetup(answers, dataDir) {
   return data;
 }
 
+export function getHookConfig() {
+  return {
+    hooks: {
+      PostToolUse: [
+        {
+          matcher: 'Bash',
+          command: "if echo \"$CC_TOOL_INPUT\" | grep -q 'gh pr create'; then pr-fitness prompt --pr \"$(echo $CC_TOOL_OUTPUT | grep -oE 'https://github.com/[^ ]+' | head -1)\"; fi",
+          description: 'PR Fitness: assigns an exercise after creating a PR.',
+        },
+      ],
+    },
+  };
+}
+
+export function installHook() {
+  const claudeDir = join(process.env.HOME || process.env.USERPROFILE, '.claude');
+  const hooksPath = join(claudeDir, 'hooks.json');
+
+  mkdirSync(claudeDir, { recursive: true });
+
+  let existing = { hooks: {} };
+  if (existsSync(hooksPath)) {
+    try {
+      existing = JSON.parse(readFileSync(hooksPath, 'utf-8'));
+    } catch {
+      // If the file is corrupt, start fresh
+    }
+  }
+
+  // Merge — don't overwrite existing hooks
+  if (!existing.hooks) existing.hooks = {};
+  if (!existing.hooks.PostToolUse) existing.hooks.PostToolUse = [];
+
+  // Check if our hook is already installed
+  const alreadyInstalled = existing.hooks.PostToolUse.some(
+    (h) => h.command && h.command.includes('pr-fitness prompt')
+  );
+
+  if (alreadyInstalled) {
+    return { installed: false, reason: 'already-installed', path: hooksPath };
+  }
+
+  const hookConfig = getHookConfig();
+  existing.hooks.PostToolUse.push(...hookConfig.hooks.PostToolUse);
+
+  writeFileSync(hooksPath, JSON.stringify(existing, null, 2) + '\n');
+  return { installed: true, path: hooksPath };
+}
+
 export async function interactiveSetup(dataDir) {
   const inquirer = await import('inquirer');
 
-  const answers = await inquirer.default.prompt([
+  console.log('\nWelcome to PR Fitness! Get fit one PR at a time.\n');
+
+  const { equipment } = await inquirer.default.prompt([
     {
       type: 'checkbox',
       name: 'equipment',
-      message: 'Got any equipment?',
+      message: 'Got any equipment? (select with space, enter to continue)',
       choices: [
         { name: 'Pull-up bar', value: 'pull-up-bar' },
         { name: 'Resistance bands', value: 'bands' },
         { name: 'Weights / dumbbells', value: 'weights' },
       ],
     },
+  ]);
+
+  runSetup({ equipment }, dataDir);
+
+  console.log('\n———————————————————————————————————————————');
+  console.log('One more thing — the most important step!\n');
+  console.log('PR Fitness works by automatically assigning you an exercise');
+  console.log('every time you create a pull request in Claude Code.\n');
+  console.log('Without this hook, nothing happens — you\'d have to');
+  console.log('remember to run "pr-fitness prompt" manually every time.\n');
+  console.log('The hook makes it automatic: create a PR → get an exercise.\n');
+
+  const { installIt } = await inquirer.default.prompt([
     {
-      type: 'list',
-      name: 'tone',
-      message: 'Pick your vibe:',
-      choices: [
-        { name: 'Minimal — "Push-ups (10) — How many did you do?"', value: 'minimal' },
-        { name: 'Encouraging — "Nice PR! Time for 10 push-ups — you\'ve got this!"', value: 'encouraging' },
-      ],
+      type: 'confirm',
+      name: 'installIt',
+      message: 'Install the Claude Code hook? (highly recommended)',
+      default: true,
     },
   ]);
 
-  runSetup(answers, dataDir);
-  console.log('\nYou\'re all set! Exercises will appear when you create PRs.\n');
+  if (installIt) {
+    const result = installHook();
+    if (result.installed) {
+      console.log(`\nHook installed at ${result.path}`);
+      console.log('Now every PR you create in Claude Code will assign an exercise!\n');
+    } else {
+      console.log('\nHook is already installed — you\'re good!\n');
+    }
+  } else {
+    console.log('\nNo worries! You can install it later with:');
+    console.log('  pr-fitness hook install\n');
+    console.log('Or run exercises manually with:');
+    console.log('  pr-fitness prompt\n');
+  }
+
+  console.log('You\'re all set! Happy coding (and exercising).\n');
 }
