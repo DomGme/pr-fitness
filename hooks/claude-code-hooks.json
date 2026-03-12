@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "if echo \"$CC_TOOL_INPUT\" | grep -q 'gh pr create'; then pr-fitness prompt --pr \"$(echo $CC_TOOL_OUTPUT | grep -oE 'https://github.com/[^ ]+' | head -1)\"; fi",
+        "description": "PR Fitness: assigns an exercise after creating a PR. If it outputs a daily choice menu, respond with the exercise name or 'random', then Claude will call 'pr-fitness choose <name>' followed by 'pr-fitness prompt' again."
+      }
+    ]
+  }
+}
