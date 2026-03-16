@@ -5,11 +5,10 @@ Get fit one PR at a time. A CLI tool that assigns calisthenics exercises every t
 ## How It Works
 
 1. Create a pull request in Claude Code
-2. PR Fitness automatically assigns you an exercise
+2. PR Fitness assigns you an exercise (fires before PR creation, non-blocking)
 3. Do the exercise, log what you completed
-4. Track your balance over time (banked credit vs. what you owe)
 
-On your first PR each day, you pick your exercise for the day (or let it choose randomly). Every subsequent PR that day assigns reps of your chosen exercise.
+On your first PR each day, you pick your exercise for the day (random is the default option). Every subsequent PR that day assigns reps of your chosen exercise. Rep counts adapt to your history — the first few sessions use defaults, then the system learns from what you've actually completed.
 
 ## Install
 
@@ -56,8 +55,7 @@ pr-fitness log --exercise push-ups --assigned 10 --completed 12
 pr-fitness log --exercise plank --assigned 20 --completed 20 --unit seconds
 ```
 
-- Did more than assigned? You bank the surplus.
-- Did fewer? You owe the difference.
+Output: `Logged! Back to work.`
 
 ### `pr-fitness history`
 
@@ -122,12 +120,11 @@ pr-fitness reset --all    # clear all data (keeps profile)
 
 ## How the Claude Code Hook Works
 
-During setup, PR Fitness installs a [Claude Code hook](https://docs.anthropic.com/en/docs/claude-code/hooks) at `~/.claude/hooks.json`. This hook watches for `gh pr create` commands and automatically runs `pr-fitness prompt` when a PR is created.
+During setup, PR Fitness installs a [Claude Code PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks) at `~/.claude/hooks.json`. The hook fires **before** PR creation (non-blocking) — it reads tool input as JSON from stdin via `jq` to detect `gh pr create` calls, then runs `pr-fitness prompt`.
 
-You can also install or inspect the hook manually:
+You can inspect the hook manually:
 
 ```bash
-# The hook config lives at
 cat ~/.claude/hooks.json
 ```
 
