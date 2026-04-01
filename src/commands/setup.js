@@ -28,7 +28,7 @@ export function getHookConfig() {
           hooks: [
             {
               type: 'command',
-              command: "INPUT=$(cat); if echo \"$INPUT\" | jq -r '.tool_input.command' 2>/dev/null | grep -q 'gh pr create'; then pr-fitness prompt 2>/dev/null; fi",
+              command: "INPUT=$(cat); if echo \"$INPUT\" | jq -r '.tool_input.command' 2>/dev/null | grep -q 'gh pr create'; then pr-fitness status --json 2>/dev/null; fi",
             },
           ],
         },
@@ -56,18 +56,26 @@ export function installHook() {
   if (!existing.hooks) existing.hooks = {};
   if (!existing.hooks.PreToolUse) existing.hooks.PreToolUse = [];
 
-  // Check if our hook is already installed
-  const alreadyInstalled = existing.hooks.PreToolUse.some(
+  const oldHookIndex = existing.hooks.PreToolUse.findIndex(
     (h) => h.hooks && h.hooks.some((sub) => sub.command && sub.command.includes('pr-fitness prompt'))
   );
+  const currentHookInstalled = existing.hooks.PreToolUse.some(
+    (h) => h.hooks && h.hooks.some((sub) => sub.command && sub.command.includes('pr-fitness status --json'))
+  );
 
-  if (alreadyInstalled) {
+  if (currentHookInstalled) {
     return { installed: false, reason: 'already-installed', path: hooksPath };
   }
 
   const hookConfig = getHookConfig();
-  existing.hooks.PreToolUse.push(...hookConfig.hooks.PreToolUse);
 
+  if (oldHookIndex !== -1) {
+    existing.hooks.PreToolUse[oldHookIndex] = hookConfig.hooks.PreToolUse[0];
+    writeFileSync(hooksPath, JSON.stringify(existing, null, 2) + '\n');
+    return { installed: true, upgraded: true, path: hooksPath };
+  }
+
+  existing.hooks.PreToolUse.push(...hookConfig.hooks.PreToolUse);
   writeFileSync(hooksPath, JSON.stringify(existing, null, 2) + '\n');
   return { installed: true, path: hooksPath };
 }

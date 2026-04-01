@@ -74,7 +74,7 @@ describe('hook installation', () => {
     expect(existsSync(hooksPath)).toBe(true);
     const hooks = JSON.parse(readFileSync(hooksPath, 'utf-8'));
     expect(hooks.hooks.PreToolUse).toHaveLength(1);
-    expect(hooks.hooks.PreToolUse[0].hooks[0].command).toContain('pr-fitness prompt');
+    expect(hooks.hooks.PreToolUse[0].hooks[0].command).toContain('pr-fitness status --json');
   });
 
   it('does not duplicate hook if already installed', () => {
@@ -101,7 +101,39 @@ describe('hook installation', () => {
     const hooks = JSON.parse(readFileSync(join(fakeHome, '.claude', 'hooks.json'), 'utf-8'));
     expect(hooks.hooks.PreToolUse).toHaveLength(2);
     expect(hooks.hooks.PreToolUse[0].command).toBe('echo hello');
-    expect(hooks.hooks.PreToolUse[1].hooks[0].command).toContain('pr-fitness prompt');
+    expect(hooks.hooks.PreToolUse[1].hooks[0].command).toContain('pr-fitness status --json');
+  });
+
+  it('getHookConfig returns command with pr-fitness status --json', () => {
+    const config = getHookConfig();
+    expect(config.hooks.PreToolUse[0].hooks[0].command).toContain('pr-fitness status --json');
+  });
+
+  it('upgrades old hook to new hook', async () => {
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    mkdirSync(join(fakeHome, '.claude'), { recursive: true });
+    writeFileSync(join(fakeHome, '.claude', 'hooks.json'), JSON.stringify({
+      hooks: {
+        PreToolUse: [{
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: 'INPUT=$(cat); if echo "$INPUT" | jq -r \'.tool_input.command\' 2>/dev/null | grep -q \'gh pr create\'; then pr-fitness prompt 2>/dev/null; fi' }],
+        }],
+      },
+    }));
+
+    const result = installHook();
+    expect(result.installed).toBe(true);
+    expect(result.upgraded).toBe(true);
+    const hooks = JSON.parse(readFileSync(join(fakeHome, '.claude', 'hooks.json'), 'utf-8'));
+    expect(hooks.hooks.PreToolUse).toHaveLength(1);
+    expect(hooks.hooks.PreToolUse[0].hooks[0].command).toContain('pr-fitness status --json');
+  });
+
+  it('does not duplicate when new hook already installed', () => {
+    installHook();
+    const result = installHook();
+    expect(result.installed).toBe(false);
+    expect(result.reason).toBe('already-installed');
   });
 
   it('getHookConfig returns valid hook structure', () => {
