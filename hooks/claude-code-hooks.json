@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "INPUT=$(cat); if echo \"$INPUT\" | jq -r '.tool_input.command' 2>/dev/null | grep -q 'gh pr create'; then pr-fitness prompt 2>/dev/null; fi"
+            "command": "INPUT=$(cat); if echo \"$INPUT\" | jq -r '.tool_input.command' 2>/dev/null | grep -q 'gh pr create'; then pr-fitness status --json 2>/dev/null; fi"
           }
         ]
       }
