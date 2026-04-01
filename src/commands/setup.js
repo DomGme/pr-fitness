@@ -60,7 +60,7 @@ export function installHook() {
     (h) => h.hooks && h.hooks.some((sub) => sub.command && sub.command.includes('pr-fitness prompt'))
   );
   const currentHookInstalled = existing.hooks.PreToolUse.some(
-    (h) => h.hooks && h.hooks.some((sub) => sub.command && sub.command.includes('pr-fitness status'))
+    (h) => h.hooks && h.hooks.some((sub) => sub.command && sub.command.includes('pr-fitness status --json'))
   );
 
   if (currentHookInstalled) {
