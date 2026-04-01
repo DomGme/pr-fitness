@@ -98,6 +98,27 @@ program
   });
 
 program
+  .command('status')
+  .description('Check current exercise state')
+  .option('--json', 'Output as JSON')
+  .action(async (opts) => {
+    const { getStatus } = await import('../src/commands/status.js');
+    const { formatDailyChoice } = await import('../src/tones.js');
+    const status = getStatus(dataDir);
+    if (opts.json) {
+      console.log(JSON.stringify(status));
+    } else {
+      if (status.state === 'needs-setup') {
+        console.log('No profile found. Run: pr-fitness setup');
+      } else if (status.state === 'needs-choice') {
+        console.log(formatDailyChoice(status.exercises));
+      } else {
+        console.log(status.prompt);
+      }
+    }
+  });
+
+program
   .command('config')
   .description('Update preferences')
   .option('--tone <tone>', 'minimal or encouraging')
